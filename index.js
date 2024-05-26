@@ -91,9 +91,23 @@ async function run() {
             const booking = req.body;
             console.log('booking: ', booking);
             const result = await bookingCollection.insertOne(booking);
-            res.json(result);
+            // res.json(result);
+
+            const updateRoomAvailability = await roomsCollection.updateOne(
+                { _id: new ObjectId (booking.bookingId) },
+                { $set: { availability: false } }
+            );
+
+            if (result.insertedId && updateRoomAvailability.modifiedCount === 1) {
+                res.json(result);
+            } else {
+                throw new Error('Booking created but failed to update room availability');
+            }
         })
-        
+
+         
+
+
         app.get('/booking/:email', async (req, res) => {
             const email = req.params.email;
             const cursor = bookingCollection.find({ email: email });
