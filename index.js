@@ -87,6 +87,22 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/booking/:email', async (req, res) => {
+            const email = req.params.email;
+            const cursor = bookingCollection.find({ email: email });
+            const result = await cursor.toArray();
+            res.send(result);
+        })
+
+        app.get('/booking/:email/:id', async (req, res) => {
+            const id = req.params.id;
+            const queary = { _id: new ObjectId(id) };
+
+            const result = await bookingCollection.findOne(queary);
+            res.send(result);
+        });
+
+
         app.post('/booking', async (req, res) => {
             const booking = req.body;
             console.log('booking: ', booking);
@@ -94,7 +110,7 @@ async function run() {
             // res.json(result);
 
             const updateRoomAvailability = await roomsCollection.updateOne(
-                { _id: new ObjectId (booking.bookingId) },
+                { _id: new ObjectId(booking.bookingId) },
                 { $set: { availability: false } }
             );
 
@@ -105,13 +121,50 @@ async function run() {
             }
         })
 
+
+        app.patch('/booking/:id', async (req, res) => {
+            try {
+                const id = req.params.id;
+                const filter = { _id: new ObjectId(id) };
+                const option = { upsert: true };
+
+                const {
+                    newCheckIn,
+                    newCheckOut,
+                    newAdults,
+                    newChild
+                } = req.body;
+
+                const updatedCard = {
+                    $set: {
+                        checkIn: newCheckIn,
+                        checkOut: newCheckOut,
+                        adults: newAdults,
+                        child: newChild
+                    }
+                }
+
+                const result = await bookingCollection.updateOne(filter, updatedCard, option);
+
+                if (result.modifiedCount === 1) {
+                    res.status(200).json({ message: 'Booking updated successfully' });
+                } else {
+                    res.status(404).json({ error: 'Booking not found' });
+                }
+            } catch (err) {
+                console.error('Error updating booking:', err);
+                res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+
         app.delete('/booking/:id', async (req, res) => {
             const id = req.params.id;
             const booking = await bookingCollection.findOne({ _id: new ObjectId(id) });
 
             if (booking) {
                 await bookingCollection.deleteOne({ _id: new ObjectId(id) });
-                
+
                 await roomsCollection.updateOne(
                     { _id: new ObjectId(booking.bookingId) },
                     { $set: { availability: true } }
@@ -121,20 +174,6 @@ async function run() {
                 res.status(404).send({ message: 'Booking not found' });
             }
         });
-
-         
-
-
-        app.get('/booking/:email', async (req, res) => {
-            const email = req.params.email;
-            const cursor = bookingCollection.find({ email: email });
-            const result = await cursor.toArray();
-            res.send(result);
-        })
-
-
-
-
 
 
 
