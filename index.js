@@ -105,6 +105,23 @@ async function run() {
             }
         })
 
+        app.delete('/booking/:id', async (req, res) => {
+            const id = req.params.id;
+            const booking = await bookingCollection.findOne({ _id: new ObjectId(id) });
+
+            if (booking) {
+                await bookingCollection.deleteOne({ _id: new ObjectId(id) });
+                
+                await roomsCollection.updateOne(
+                    { _id: new ObjectId(booking.bookingId) },
+                    { $set: { availability: true } }
+                );
+                res.status(200).send({ message: 'Booking deleted and room availability updated' });
+            } else {
+                res.status(404).send({ message: 'Booking not found' });
+            }
+        });
+
          
 
 
