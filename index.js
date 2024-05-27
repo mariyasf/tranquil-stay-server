@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
-const port = process.env.PORT || 5000
+const port = process.env.PORT || 3000
 
 
 // Middleware
@@ -71,6 +71,7 @@ async function run() {
             const result = await cursor.toArray();
             res.send(result);
         })
+
         app.get('/rooms/:id', async (req, res) => {
             const id = req.params.id;
             const queary = { _id: new ObjectId(id) };
@@ -186,11 +187,32 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/feedback/:bookingId', async (req, res) => {
+            const bookingId = req.params.bookingId;
+            console.log(bookingId)
+
+
+            const feedbacks = await feedbackCollection
+                .find({ bookingId: bookingId }).toArray();
+            // console.log(feedbacks)
+
+            // res.status(200).json(feedbacks);
+            res.send(feedbacks)
+
+        });
+
         app.post('/feedback', async (req, res) => {
-            const newCard = req.body;
-            console.log('newCard: ', newCard);
-            const result = await feedbackCollection.insertOne(newCard);
-            res.json(result.ops[0]);
+            try {
+                const newFeedback = req.body;
+
+                const result = await feedbackCollection.insertOne(newFeedback);
+                res.status(201).json({ insertedId: result.insertedId });
+
+            } catch (error) {
+                console.error('Error inserting feedback:', error);
+                res.status(500).json({ message: 'Internal Server Error' });
+            }
+
         })
 
         console.log("Pinged your deployment. You successfully connected to MongoDB!");
