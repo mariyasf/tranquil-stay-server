@@ -1,12 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const app = express();
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 5000
+
 
 
 // Middleware
-
 app.use(cors({
     origin: [
         'http://localhost:5173',
@@ -14,9 +16,11 @@ app.use(cors({
         'https://tranquil-stay-server.vercel.app'
 
     ],
-    credentials: true
+    credentials: true,
+    optionsSuccessStatus: 200,
 }));
 app.use(express.json());
+app.use(cookieParser());
 
 require('dotenv').config()
 
@@ -33,8 +37,60 @@ const client = new MongoClient(uri, {
     }
 });
 
+const cookieOption = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production' ? true : false,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'strict',
+};
+
+// user MiddleWare
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
+    if (!token) {
+        return res.status(401).send({ message: 'unauthorized access' })
+    }
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+            return res.status(401).send({ message: 'unauthorized access' })
+        }
+        req.user = decoded;
+        next();
+    })
+}
+
+
 async function run() {
     try {
+        // jwt
+        app.post('/jwt', async (req, res) => {
+            const user = req.body;
+            console.log(user);
+
+            const token = jwt.sign(
+                user,
+                process.env.ACCESS_TOKEN_SECRET,
+                {
+                    expiresIn: '30d'
+                }
+            )
+
+            res
+                .cookie('token', token, cookieOption)
+                .send({ success: true })
+        });
+
+        app.get('/logout', async (req, res) => {
+            const user = req.body;
+            console.log('logging out', user);
+            res
+                .clearCookie('token', {
+                    ...cookieOption,
+                    maxAge: 0
+                })
+                .send({ success: true })
+        })
+
+
         // User
         const userCollection = client.db('tranquilstayDB').collection('user')
 
@@ -72,13 +128,15 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/rooms/:id', async (req, res) => {
+        app.get('/rooms/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const queary = { _id: new ObjectId(id) };
 
             const result = await roomsCollection.findOne(queary);
             res.send(result);
         })
+
+
 
         // Booking
         const bookingCollection = client.db('tranquilstayDB').collection('booking');
@@ -88,14 +146,21 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/booking/:email', async (req, res) => {
+        app.get('/booking/:email', verifyToken, async (req, res) => {
+
+            console.log('user in the valid token', req.user)
+
+            if (req.params.email !== req.user.email) {
+                return res.status(403).send({ message: 'forbidden access' })
+            }
+
             const email = req.params.email;
             const cursor = bookingCollection.find({ email: email });
             const result = await cursor.toArray();
             res.send(result);
         })
 
-        app.get('/booking/:email/:id', async (req, res) => {
+        app.get('/booking/:email/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const queary = { _id: new ObjectId(id) };
 
@@ -123,7 +188,7 @@ async function run() {
         })
 
 
-        app.patch('/booking/:id', async (req, res) => {
+        app.patch('/booking/:id', verifyToken, async (req, res) => {
             try {
                 const id = req.params.id;
                 const filter = { _id: new ObjectId(id) };
@@ -159,7 +224,7 @@ async function run() {
         });
 
 
-        app.delete('/booking/:id', async (req, res) => {
+        app.delete('/booking/:id', verifyToken, async (req, res) => {
             const id = req.params.id;
             const booking = await bookingCollection.findOne({ _id: new ObjectId(id) });
 
@@ -187,7 +252,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/feedback/:bookingId', async (req, res) => {
+        app.get('/feedback/:bookingId', verifyToken, async (req, res) => {
             const bookingId = req.params.bookingId;
             console.log(bookingId)
 
