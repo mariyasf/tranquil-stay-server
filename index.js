@@ -12,9 +12,8 @@ const port = process.env.PORT || 5000
 app.use(cors({
     origin: [
         'http://localhost:5173',
-        'https://tranquil-stay.web.app',
-        'https://tranquil-stay-server.vercel.app'
-
+        'https://tranquil-stay-server.vercel.app',
+        'https://tranquil-stay.web.app', 
     ],
     credentials: true,
     optionsSuccessStatus: 200,
@@ -128,7 +127,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/rooms/:id', verifyToken, async (req, res) => {
+        app.get('/rooms/:id', async (req, res) => {
             const id = req.params.id;
             const queary = { _id: new ObjectId(id) };
 
@@ -252,7 +251,7 @@ async function run() {
             res.send(result);
         })
 
-        app.get('/feedback/:bookingId', verifyToken, async (req, res) => {
+        app.get('/feedback/:bookingId', async (req, res) => {
             const bookingId = req.params.bookingId;
             console.log(bookingId)
 
